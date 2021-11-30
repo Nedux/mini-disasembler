@@ -2,33 +2,38 @@
 .model small
 .stack 100
 .data
-     
+    ; Files
     inFile dw 0000h 
     outFile dw 0000h
     inFileName db 13 dup(' '), 0h ;  Input file
     outFileName db 13 dup('$'), 0h ;  output file
     inputError db "Problem with files!$"
-    debug db "Problemo!$"
     buff db 0h
+    
+    ; Count
+    count dw 0
+    countBuff db "0000: "
+    
+    debug db "Problemo!$"
     ; Simbols
     spaces db " " 
+    endl db 0Ah
     
+    ; Registers
     registers db "alahaxclchcxblbhbxdldhdxspbpsidi"
-    
     segments db "escsssds"
-    segmentOff dw 0h
+    segmentOff dw 0h    
         
     commands db "movoutnotrcrxlat"
+    
     unkownOperation db "Nezinoma"
     known dw 0h
     
-    endl db 0Ah
     
         
 .code
 start:
   
-
     mov dx, @data
     mov ds, dx
     
@@ -66,18 +71,6 @@ start:
     
     jc PrintError 
     mov inFile, ax ; File handle
-    
-    ; Read file fhr
-    ;mov ah, 3fh
-    ;mov bx, inFile ; File handle
-    ;mov cx, 2000 ; Number of bytes to read
-    ;mov dx, offset maze 
-    ;int 21h   
-    ;jc Error ; Error CF = 1
-    
-    ;cmp ax, 2000 ; Is map big enough?
-    ;jb Error
-
     
     ; Open out file
     mov ah, 3ch
@@ -138,7 +131,8 @@ ReadFileName:
     terminate: 
     ret
 ;-----------Begining-----------
-; Gets al changes segmentOff
+
+; Gets al, Changes: segmentOff
 Prefix:
     cmp al, 26h ; ES
     jz Begin1
@@ -154,21 +148,24 @@ Prefix:
     add segmentOff, 2h ; DS
     cmp al, 3eh
     jz Begin1
-    mov segmentOff, 0h
-    ;segments db "es cs ss ds"
-    jmp begin2
+    
+    mov segmentOff, 0h ; Normal command
+    jmp Begin2
+    
 Begin:
     call Read
+    inc count
     mov al, buff
-    ; If prefix
+    
     jmp Prefix
-Begin1: 
-    call Read  
-Begin2: 
-    xor ah, ah
-    mov bx, ax
+Begin1:  ; Prefix detected 
+    call Read 
+    mov al, buff
+    inc count
+Begin2: ; No prefix
     ; Mov 1
-            
+    xor ah, ah
+    mov bx, ax      
     and ax, 11111100b
     cmp ax, 10001000b
     jne next1
@@ -182,6 +179,7 @@ next1:
     jne next2
     mov known, 1
     call mov2
+    ; Mov 3
 next2:
     mov ax, bx
     and ax, 11110000b
@@ -189,6 +187,7 @@ next2:
     jne next3
     mov known, 1
     call mov3 
+    ; Mov 4
 next3:
     mov ax, bx
     and ax, 11111110b
@@ -196,6 +195,7 @@ next3:
     jne next4
     mov known, 1
     call mov4
+    ; Mov 5
 next4:
     mov ax, bx
     and ax, 11111110b
@@ -203,6 +203,7 @@ next4:
     jne next5
     mov known, 1
     call mov5
+    ; Mov 6
 next5:
     mov ax, bx
     and ax, 11111101b
@@ -210,6 +211,7 @@ next5:
     jne next6
     mov known, 1
     call mov6
+    ; OUT 1
 next6:
     mov ax, bx
     and ax, 11111110b
@@ -217,6 +219,7 @@ next6:
     jne next7
     mov known, 1
     call out1
+    ; OUT 2
 next7:
     mov ax, bx
     and ax, 11111110b
@@ -224,6 +227,7 @@ next7:
     jne next8
     mov known, 1
     call out2
+    ; NOT 
 next8:
     mov ax, bx
     and ax, 11111100b
@@ -231,6 +235,7 @@ next8:
     jne next9
     mov known, 1
     call not1
+    ; RCR
 next9:
     mov ax, bx
     and ax, 11111100b
@@ -238,6 +243,7 @@ next9:
     jne next10
     mov known, 1
     call rcr1
+    ; XLAT
 next10:
     mov ax, bx
     and ax, 11111111b
@@ -245,13 +251,14 @@ next10:
     jne next11
     mov known, 1
     call xlat1
-    
+    ; Unknow
 next11:
-    cmp known, 0
+    cmp known, 0 ; Not found
     jne next12
     call unknownOp
+    
+    ; Preparing for new command
 next12: 
-   
     mov known, 0
     mov segmentOff, 0h  
     jmp begin 
@@ -260,9 +267,10 @@ exit1:
     jmp exit 
  
     
-Read:
+Read: ;
     push bx
     push ax
+    push cx
     
     xor ax, ax
     mov ah, 3fh
@@ -270,22 +278,54 @@ Read:
     mov cx, 1
     mov dx, offset buff
     int 21h
-    
-    jc exit1
+    jc exit1 ; Error occured
     cmp ax, 1
-    jb exit1
+    jb exit1 ; Read less
     
+    pop cx    
     pop ax
     pop bx
     
     ret 
     
+FormatCount: ; Gets ax ; changes nothing
+    push si
+    push cx
+    push bx
+    push dx
     
-  ;Example
- ;mov cx, 3
- ;mov dx, [offset commands + 6]    
- ;call print_n    
-Print_n: ; Gets cx - how much to print, dx - what to print
+    ; Formating the results
+    mov si, offset countBuff + 3   
+    xor cx, cx
+    mov cx, 4   ; 4 times since 4 digits max number
+ 
+    mov bx, 10h 
+    
+ciklas3:
+    xor dx, dx
+    div bx      ; ax - sveikoji dalis, dx - liekana
+    add dx, 30h
+    cmp dl, 39h 
+    jbe write
+    add dl, 7h ; If 10 - 16
+write:
+    mov ds:[si], dl           
+    dec si          
+    loop ciklas3    
+    
+    mov dx, offset countBuff
+    mov cx, 6
+    call print_n
+    
+    pop dx
+    pop bx
+    pop cx
+    pop si
+    ret
+    
+    
+     
+Print_n: ; Gets cx - how much to print, dx - what to print; changes nothing
     push ax
     push bx
     
@@ -300,6 +340,9 @@ Print_n: ; Gets cx - how much to print, dx - what to print
     
     
 unknownOp:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset unkownOperation
     mov cx, 8
     call print_n
@@ -308,6 +351,9 @@ unknownOp:
     call print_n
     ret
 mov1:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -316,6 +362,9 @@ mov1:
     call print_n
     ret
 mov2:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -324,6 +373,9 @@ mov2:
     call print_n
     ret
 mov3:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -332,6 +384,9 @@ mov3:
     call print_n
     ret
 mov4:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -340,6 +395,9 @@ mov4:
     call print_n
     ret
 mov5:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -348,6 +406,9 @@ mov5:
     call print_n
     ret
 mov6:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -357,6 +418,9 @@ mov6:
     ret
     ;commands db "movoutnotrcrxlat"
 out1:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands + 3
     mov cx, 3
     call print_n
@@ -366,6 +430,9 @@ out1:
     call print_n
     ret
 out2:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands + 3
     mov cx, 3
     call print_n
@@ -374,6 +441,9 @@ out2:
     call print_n
     ret
 not1:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands + 6
     mov cx, 3
     call print_n
@@ -382,6 +452,9 @@ not1:
     call print_n
     ret
 rcr1:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands + 9
     mov cx, 3
     call print_n
@@ -390,6 +463,9 @@ rcr1:
     call print_n
     ret
 xlat1:
+    mov ax, count
+    call FormatCount
+    
     mov dx, offset commands + 12
     mov cx, 4
     call print_n
