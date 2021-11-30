@@ -9,8 +9,11 @@
     outFileName db 13 dup('$'), 0h ;  output file
     inputError db "Problem with files!$"
     
-    registers db "al ax cl cx dl dx bl bx ah sp ch bp dh si bh di"
+    registers db "alahaxclchcxblbhbxdldhdxspbpsidi"
+    segments db "escsssds"
+    commands db "movoutnotrcrxlat"
     
+        
 .code
 start:
   
@@ -72,13 +75,7 @@ start:
     jc PrintError 
     mov outFile, ax
     
-    
-    ; Writing to file
-    ;mov ah, 40h
-    ;mov bx, PrintError 
-    ;mov dx, offset output 
-    ;int 21h
-    ;jc PrintError
+    jmp begin
     
    
 
@@ -86,6 +83,7 @@ start:
     
     
 ; ---------- Closing -------------
+exit:
     ; Close in file
     mov ah, 3eh
     mov bx, inFile 
@@ -125,4 +123,30 @@ ReadFileName:
         loop ciklas
     terminate: 
     ret
+;-----------Begining-----------
+begin:
+    mov cx, 3
+    mov dx, [offset commands + 6]    
+
+    call print_n
+    
+    jmp exit
+
+
+        
+print_n: ; Gets cx - how much to print, dx - what to print
+    push ax
+    push bx
+    
+    xor ax, ax
+    mov ah, 40h
+    mov bx, outFile  
+    int 21h
+   
+    pop bx
+    pop ax
+    ret
+
+
+    
 end start
