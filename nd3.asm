@@ -45,6 +45,8 @@
     d db 0
     posl1 db 0
     posl2 db 0
+    op1 db 0
+    op2 db 0
     
     unkownOperation db "Nezinoma"
     known dw 0h
@@ -184,7 +186,6 @@ Begin1:  ; Prefix detected
     call print_space
     inc count
 Begin2: ; No prefix
-
     ; Mov 1
     xor ah, ah
     mov bx, ax      
@@ -415,52 +416,290 @@ unknownOp:
     call print_n
     ret
 mov1:
+    
     mov opk, bl
     call getInfo
     
+    cmp modd, 00b  ; mod 00
+    jne mov1_n3
+    cmp rm, 110b 
+    jne mov1_n2
+    call pos2B ; Tiesioginis adresas
+mov1_n2: 
+    mov dx, offset commands
+    mov cx, 3
+    call print_n
+    call print_space
+    
+    cmp d, 0 ; r/m <- reg
+    jne mov1_d1
+    call prefix_print      
+    call rm0b
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    mov al, reg
+    call regp
+    
+    jmp mov1_n3
+mov1_d1:
+    mov al, reg
+    call regp
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    call prefix_print      
+    call rm0b
+    
+mov1_n3: ; mod 11
+    cmp modd, 11b
+    jne mov1_n4
     
     mov dx, offset commands
     mov cx, 3
     call print_n
+    call print_space
+    cmp d, 0 ; r/m <- reg
+    jne mov1_d2
+    mov al, rm
+    call regp
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    
+    mov al, reg
+    call regp
+    
+    jmp mov1_n4
+mov1_d2:
+    mov al, reg
+    call regp
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    mov al, rm
+    call regp
+    jmp mov1_n5
+mov1_n4:
+    cmp modd, 01b ; mod = 01
+    jne mov1_n5
+    call pos1B
+    mov dx, offset commands 
+    mov cx, 3
+    call print_n
+    call print_space
+    cmp d, 0 ; r/m <- reg
+    jne mov1_d3
+    call prefix_print      
+    call rm1b
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    mov al, reg
+    call regp
+    jmp mov1_n5
+mov1_d3:
+    mov al, reg
+    call regp
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    call prefix_print      
+    call rm1b
+   
+mov1_n5:            
+    cmp modd, 10b ; mod 10
+    jne mov1_n6
+    call pos2B
+    mov dx, offset commands
+    mov cx, 3
+    call print_n
+    call print_space
+    cmp d, 0 ; r/m <- reg
+    jne mov1_d4
+    call prefix_print      
+    call rm2b
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    mov al, reg
+    call regp
+    jmp mov1_n5
+mov1_d4:
+    mov al, reg
+    call regp
+    mov cx, 1
+    mov dx, offset comma
+    call print_n
+    call print_space
+    call prefix_print      
+    call rm2b    
+    
+mov1_n6:
     mov dx, offset endl
     mov cx, 1
     call print_n
     ret
-mov2:
-
     
+    
+mov2:
+    mov opk, bl
+    call getInfo
+    
+    cmp modd, 00b  ; mod 00
+    jne mov2_n3
+    
+    cmp rm, 110b 
+    jne mov2_n2
+    call pos2B ; Tiesioginis adresas
+mov2_n2: 
+    call betop_r
     mov dx, offset commands
     mov cx, 3
     call print_n
+    call print_space 
+    call prefix_print
+    call rm0b
+    
+mov2_n3: ; mod 11
+    cmp modd, 11b
+    jne mov2_n4
+    call betop_r
+    mov dx, offset commands
+    mov cx, 3
+    call print_n
+    call print_space
+    mov al, rm
+    call regp
+    
+mov2_n4:; mod 01
+    cmp modd, 01b 
+    jne mov2_n5
+    call pos1B
+    call betop_r
+    mov dx, offset commands
+    mov cx, 3
+    call print_n
+    call print_space
+    call prefix_print
+    call rm1b
+    
+mov2_n5:; mod 10
+    cmp modd, 10b 
+    jne mov2_n6
+    call pos2B
+    call betop_r
+    mov dx, offset commands
+    mov cx, 3
+    call print_n
+    call print_space
+    call prefix_print
+    call rm2b
+    
+mov2_n6:
+    mov dx, offset comma
+    mov cx, 1
+    call print_n
+    call print_space
+    call betop_p   
     mov dx, offset endl
     mov cx, 1
     call print_n
     ret
 mov3:
-    
+    xor ax, ax
+    mov al, bl ; Info is in opk 
+    mov cx, 1000b
+    div cl
+    mov reg, ah
+    cmp al, 10111b
+    xor ah, ah
+    mov cx, 10b
+    div cl
+    mov w, ah
+    call betop_r
+        
     mov dx, offset commands
     mov cx, 3
     call print_n
+    call print_space
+    xor ax, ax
+    mov al, reg
+    call regp
+    mov dx, offset comma
+    mov cx, 1
+    call print_n
+    call print_space
+    call betop_p
+    
     mov dx, offset endl
     mov cx, 1
     call print_n
     ret
 mov4:
-
-    
+    mov w, 1 ; Reading 2 bytes
+    call betop_r
+    xor ah, ah
+    mov al, bl
+    mov cx, 10b
+    div cl
+    mov w, ah ; Getting real w
     mov dx, offset commands
     mov cx, 3
+    call print_n
+    call print_space
+    mov al, 0b ; Akumuliatorius visada
+    call regp
+    mov dx, offset comma
+    mov cx, 1
+    call print_n
+    call print_space
+    mov dx, offset rmfield
+    mov cx, 1
+    call print_n
+    mov w, 1 
+    call betop_p
+    mov dx, offset bracket
+    mov cx, 1
     call print_n
     mov dx, offset endl
     mov cx, 1
     call print_n
     ret
 mov5:
-    
-    
+    mov w, 1 ; Reading 2 bytes
+    call betop_r
     mov dx, offset commands
     mov cx, 3
     call print_n
+    call print_space
+    mov dx, offset rmfield
+    mov cx, 1
+    call print_n
+    mov w, 1 
+    call betop_p
+    mov dx, offset bracket
+    mov cx, 1
+    call print_n
+    mov dx, offset comma
+    mov cx, 1
+    call print_n
+    call print_space
+    xor ah, ah
+    mov al, bl
+    mov cx, 10b
+    div cl
+    mov w, ah ; Getting real w
+    mov al, 0b ; Akumuliatorius visada
+    call regp
+    call print_space
     mov dx, offset endl
     mov cx, 1
     call print_n
@@ -563,6 +802,7 @@ not_n3: ; mod 11
     mov cx, 3
     call print_n
     call print_space
+    mov al, rm
     call regp
     
 not_n5:; mod 01
@@ -621,6 +861,7 @@ rcr_n3: ; mod 11
     mov cx, 3
     call print_n
     call print_space
+    mov al, rm
     call regp
     
 rcr_n5:; mod 01
@@ -772,7 +1013,39 @@ rm2b:
     pop bx
     pop ax
     ret
-      
+betop_r: ; Reading betarpiskas operandas
+    cmp w, 0
+    jne betop_r1
+    call betop1b
+    ret
+betop_r1:
+    call betop2b
+    ret
+    
+betop_p: ; Printing betarpiskas operandas
+    cmp w, 0
+    jne betop_p1
+    call betop1b_p 
+    ret
+betop_p1:
+    call betop2b_p
+    ret
+
+betop2b_p:
+    push ax
+    
+    mov al, op2
+    call FormatByte
+    ; posl2
+    mov al, op1
+    call FormatByte
+    ; h
+    mov dx, offset hex
+    mov cx, 1
+    call print_n
+    
+    pop ax
+    ret     
 rm1b:
     push ax
     push bx
@@ -804,6 +1077,16 @@ rm1b:
     
     pop cx
     pop bx
+    pop ax
+    ret
+betop1b_p:
+    push ax
+    ; Betarpiskas operandas
+    mov al, op1
+    call FormatByte
+    mov dx, offset hex
+    mov cx, 1
+    call print_n
     pop ax
     ret
 rm0b:
@@ -857,11 +1140,9 @@ rm0bn_2: ; size 3 chars
     mov dx, offset rmfield + 24 ; Skipping elements with 6 chars  
     add dx, ax
     call print_n
-   
     mov dx, offset bracket
     mov cx, 1
     call print_n
-    
     pop ax
     pop bx
     ret
@@ -878,6 +1159,19 @@ pos1B:
     pop bx
     pop ax
     ret    
+betop1B:
+    push ax
+    push bx
+    call Read 
+    mov bl, buff
+    inc count
+    mov op1, bl
+    mov al, bl
+    call FormatByte
+    call print_space
+    pop bx
+    pop ax
+    ret  
 pos2B:
     push ax
     push bx
@@ -902,15 +1196,37 @@ pos2B:
     pop bx
     pop ax
     ret
-regp:
+betop2B:
+    push ax
+    push bx
+    call Read 
+    mov bl, buff
+    inc count
+    mov op1, bl    
+    mov al, bl
+    call FormatByte
+    call print_space
+    call Read
+    mov bl, buff
+    inc count
+    mov op2, bl
+    
+    mov al, bl
+    call FormatByte
+    call print_space
+    
+    pop bx
+    pop ax
+    ret
+regp: ; gets al (within reg or rm/m)
     push ax
     push bx
     
     cmp w, 0 
     jne regpn_1
     ; 1 byte
+    mov bl, al
     mov ax, 4
-    mov bl, rm
     mul bl
     mov cx, 2
     mov dx, offset registers
@@ -921,15 +1237,14 @@ regp:
     ret
 regpn_1:
     ; 2 bytes
+    mov bl, al
     mov ax, 4
-    mov bl, rm
     mul bl
     add ax, 2
     mov cx, 2
     mov dx, offset registers
     add dx, ax
     call print_n
-  
     pop bx
     pop ax
     ret
@@ -940,8 +1255,5 @@ Problemo:
     mov dx, offset debug
     int 21h    
     mov ax, 4c00h
-    int 21h
-
-
-    
+    int 21h    
 end start
