@@ -13,7 +13,9 @@
     
     ; Count
     count dw 100h
-    countBuff db "0000: "
+    countBuff db "0000:                                  "
+                        
+    buffp dw 6
     byteBuff db "  "
     wordBuff db "    "
     
@@ -159,101 +161,103 @@ Begin1:  ; Prefix detected
 Begin2: ; No prefix
     ; Mov 1
     xor si, si ; For indicating unknown
+    
     xor ah, ah
     mov bx, ax      
     and ax, 11111100b
     cmp ax, 10001000b
     jne next1
-    mov si, 1
     call mov1
+    mov si, 1
     ; Mov 2
 next1:
     mov ax, bx
     and ax, 11111110b
     cmp ax, 11000110b
     jne next2
-    mov si, 1
     call mov2
+    mov si, 1
     ; Mov 3
 next2:
     mov ax, bx
     and ax, 11110000b
     cmp ax, 10110000b
     jne next3
-    mov si, 1
     call mov3 
+    mov si, 1
     ; Mov 4
 next3:
     mov ax, bx
     and ax, 11111110b
     cmp ax, 10100000b
     jne next4
-    mov si, 1
     call mov4
+    mov si, 1
     ; Mov 5
 next4:
     mov ax, bx
     and ax, 11111110b
     cmp ax, 10100010b
     jne next5
-    mov si, 1
     call mov5
+    mov si, 1
     ; Mov 6
 next5:
     mov ax, bx
     and ax, 11111101b
     cmp ax, 10001100b
     jne next6
-    mov si, 1
     call mov6
+    mov si, 1
     ; OUT 1
 next6:
     mov ax, bx
     and ax, 11111110b
     cmp ax, 11100110b
     jne next7
-    mov si, 1
     call out1
+    mov si, 1
     ; OUT 2
 next7:
     mov ax, bx
     and ax, 11111110b
     cmp ax, 11101110b
     jne next8
-    mov si, 1
     call out2
+    mov si, 1
     ; NOT 
 next8:
     mov ax, bx
     and ax, 11111110b
     cmp ax, 11110110b
     jne next9
-    mov si, 1
     call not1
+    mov si, 1
     ; RCR
 next9:
     mov ax, bx
     and ax, 11111100b
     cmp ax, 11010000b
     jne next10
-    mov si, 1
     call rcr1
+    mov si, 1
     ; XLAT
 next10:
     mov ax, bx
     and ax, 11111111b
     cmp ax, 11010111b
     jne zeros
-    mov si, 1
     call xlat1
+    mov si, 1
 zeros:
     mov ax, bx
     cmp ax, 0
     jne next11
-    mov si, 1
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call Print_command
+    mov si, 1
     ; Unknow
 next11:
     cmp si, 0 ; Not found
@@ -314,9 +318,7 @@ write:
     mov ds:[si], dl           
     dec si          
     loop ciklas3    
-    mov dx, offset countBuff
-    mov cx, 6
-    call print_n
+    
     pop dx
     pop bx
     pop cx
@@ -365,15 +367,37 @@ Print_space:
     call print_n 
     ret
     
-Print_n: ; Gets cx - how much to print, dx - what to print; 
-    push ax
-    push bx
-    
+Print_command:
+    mov cx, buffp
+    mov dx, offset countBuff    
     xor ax, ax
     mov ah, 40h
     mov bx, outFile  
     int 21h
-   
+    mov buffp, 6
+    ret
+
+
+Print_n: ; Gets cx - how much to print, dx - what to print; 
+    push ax
+    push bx
+    push si
+    push di
+    
+    mov si, offset countBuff
+    add si, buffp
+    mov di, dx
+    ;countBuff db "0000:                       "
+    ;buffp db 4
+ciklas5:    
+    mov al, ds:[di]
+    mov ds:[si], al
+    inc di
+    inc si
+    inc buffp
+    loop ciklas5
+    pop di
+    pop si
     pop bx
     pop ax
     ret
@@ -385,6 +409,7 @@ unknownOp:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 mov1:
     mov opk, bl
@@ -515,6 +540,7 @@ mov1_n6:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
     
     
@@ -577,6 +603,7 @@ mov2_n6:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 mov3:
     xor ax, ax
@@ -604,6 +631,7 @@ mov3:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 mov4:
     mov w, 1 ; Reading 2 bytes
@@ -634,6 +662,7 @@ mov4:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 mov5:
     mov w, 1 ; Reading 2 bytes
@@ -665,6 +694,7 @@ mov5:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 mov6: 
     mov opk, bl
@@ -781,6 +811,7 @@ mov6_n6:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 out1:
     call pos1B
@@ -832,6 +863,7 @@ out_universal:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 
 not1:
@@ -882,6 +914,7 @@ not_n7:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 
 rcr1:
@@ -942,6 +975,7 @@ rcr_n7:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 rcr_end:
     mov dx, offset registers + 4 ; cl
@@ -950,6 +984,7 @@ rcr_end:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
 xlat1:
     mov dx, offset commands + 12
@@ -958,6 +993,7 @@ xlat1:
     mov dx, offset endl
     mov cx, 1
     call print_n
+    call print_command
     ret
     ; Gets opk - bx
 getInfo:
