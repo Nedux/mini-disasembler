@@ -9,16 +9,16 @@
     inFileName db 13 dup(' '), 0h ;  Input file
     outFileName db 13 dup('$'), 0h ;  output file
     inputError db "Problem with files!$"
-    buff db 0h
-    
     ; Count
     count dw 100h
-    countBuff db "0000:                                  "
-                        
-    buffp dw 6
+    countBuff db "0000:                                  "                  
+    buffp dw 6 ; Buff start
     byteBuff db "  "
     wordBuff db "    "
-    
+    ; Read buff
+    readbuff db 110h dup(0h)
+    n dw 0 ; Bytes read
+    i dw 0 ; Current byte
     ; Simbols
     spaces db " " 
     hex db "h"
@@ -28,14 +28,12 @@
     one db "1"
     plus db "+"
     colon db ":"
-    
     ; Registers
     registers db "alaxclcxdldxblbxahspchbpdhsibhdi"
     segments db "  escsssds"
     segmentOff dw 0h ;segment offset
     commands db "movoutnotrcrxlat"
     rmfield db "[bx+si[bx+di[bp+si[bp+di[si[di[bp[bx"
-    
     adrB db 0 ; Adresavimo baitas
     opk db 0
     modd db 0
@@ -45,9 +43,10 @@
     d db 0
     posl1 db 0 ; poslinkis 1
     posl2 db 0 ; poslinkis 2
-    op1 db 0 ; bet op 1
-    op2 db 0 ; bet op 2
-    unkownOperation db "Nezinoma"          
+    op1 db 0 ; betarpiskas op 1
+    op2 db 0 ; bet. op 2
+    unkownOperation db "Nezinoma"
+    error db "Problemo$"    
 .code
 start:
     mov dx, @data
@@ -94,10 +93,8 @@ ReadFileName:
         mov al, es:[si]
         cmp bx, 1
         ja terminate
-        
         cmp al, 20h ; Al = ' ' ? 
         jz space    ; Skip
-        
         mov ds:[di], al
         inc di 
         jmp next
@@ -146,8 +143,8 @@ Prefix:
     
 Begin:
     call Read
+    mov al, cl
     call FormatCount
-    mov al, buff
     call FormatByte
     call print_space
     inc count 
@@ -155,13 +152,12 @@ Begin:
 Begin1:  ; Prefix detected 
     call Read 
     inc count
-    mov al, buff
+    mov al, cl
     call FormatByte
     call print_space
 Begin2: ; No prefix
     ; Mov 1
     xor si, si ; For indicating unknown
-    
     xor ah, ah
     mov bx, ax      
     and ax, 11111100b
@@ -268,29 +264,44 @@ next12:
     mov segmentOff, 0h  
     jmp begin  
 ;------------- Reads 1 byte -------------
-; changes buff
 exit1:
     jmp exit 
+; Reads/gets from memory one byte to cl
 Read: 
+    push ax
+    push bx
+    mov ax, n
+    cmp i, ax
+    jb read_n1
+    call ReadFromBuff ; If reached end of buffer
+read_n1:    
+    xor cx, cx
+    mov bx, i
+    mov cl, readbuff + bx 
+    mov buff, cl
+    inc i 
+    pop bx    
+    pop ax
+    ret 
+ReadFromBuff:
     push bx
     push ax
     push cx
-    
     xor ax, ax
     mov ah, 3fh
     mov bx, inFile ; File handle
-    mov cx, 1
-    mov dx, offset buff
+    mov cx, 100h
+    mov dx, offset readbuff
     int 21h
     jc exit1 ; Error occured
-    cmp ax, 1
-    jb exit1 ; Read less
-    
-    pop cx    
+    cmp ax, 0 ; End of a file
+    jz exit1
+    mov n, ax
+    mov i, 0 
+    pop cx
     pop ax
     pop bx
-    
-    ret 
+    ret
 ;-------------- Prints count --------------
 FormatCount:  
     push ax
@@ -298,15 +309,12 @@ FormatCount:
     push cx
     push bx
     push dx
-    
     mov ax, count
     ; Formating the results
     mov si, offset countBuff + 3   
     xor cx, cx
     mov cx, 4   ; 4 times since 4 digits max number
- 
     mov bx, 10h 
-    
 ciklas3:
     xor dx, dx
     div bx      ; ax - sveikoji dalis, dx - liekana
@@ -318,7 +326,6 @@ write:
     mov ds:[si], dl           
     dec si          
     loop ciklas3    
-    
     pop dx
     pop bx
     pop cx
@@ -336,7 +343,6 @@ FormatByte:
     mov si, offset byteBuff + 1   
     xor cx, cx
     mov cx, 2
- 
     mov bx, 10h 
 ciklas4:
     xor dx, dx
@@ -349,46 +355,37 @@ write1:
     mov ds:[si], dl           
     dec si          
     loop ciklas4    
-    
     mov dx, offset byteBuff
     mov cx, 2
     call print_n
-    
     pop dx
     pop bx
     pop cx
     pop si
     pop ax
     ret
-
 Print_space:
     mov dx, offset spaces
     mov cx, 1
     call print_n 
     ret
-    
-Print_command:
+Print_command: ; Prints command
     mov cx, buffp
     mov dx, offset countBuff    
     xor ax, ax
     mov ah, 40h
     mov bx, outFile  
     int 21h
-    mov buffp, 6
+    mov buffp, 6 
     ret
-
-
-Print_n: ; Gets cx - how much to print, dx - what to print; 
+Print_n: ; Gets cx - how much to put to buffer, dx - what to put; 
     push ax
     push bx
     push si
     push di
-    
     mov si, offset countBuff
     add si, buffp
     mov di, dx
-    ;countBuff db "0000:                       "
-    ;buffp db 4
 ciklas5:    
     mov al, ds:[di]
     mov ds:[si], al
@@ -401,7 +398,6 @@ ciklas5:
     pop bx
     pop ax
     ret
-
 unknownOp:    
     mov dx, offset unkownOperation
     mov cx, 8
@@ -414,7 +410,6 @@ unknownOp:
 mov1:
     mov opk, bl
     call getInfo
-    
     cmp modd, 00b  ; mod 00
     jne mov1_n3
     cmp rm, 110b 
@@ -425,7 +420,6 @@ mov1_n2:
     mov cx, 3
     call print_n
     call print_space
-    
     cmp d, 0 ; r/m <- reg
     jne mov1_d1
     call prefix_print      
@@ -436,7 +430,6 @@ mov1_n2:
     call print_space
     mov al, reg
     call regp
-    
     jmp mov1_n3
 mov1_d1:
     mov al, reg
@@ -447,11 +440,9 @@ mov1_d1:
     call print_space
     call prefix_print      
     call rm0b
-    
 mov1_n3: ; mod 11
     cmp modd, 11b
     jne mov1_n4
-    
     mov dx, offset commands
     mov cx, 3
     call print_n
@@ -464,10 +455,8 @@ mov1_n3: ; mod 11
     mov dx, offset comma
     call print_n
     call print_space
-    
     mov al, reg
     call regp
-    
     jmp mov1_n4
 mov1_d2:
     mov al, reg
@@ -542,8 +531,6 @@ mov1_n6:
     call print_n
     call print_command
     ret
-    
-    
 mov2:
     mov opk, bl
     call getInfo
@@ -570,7 +557,6 @@ mov2_n3: ; mod 11
     call print_space
     mov al, rm
     call regp
-    
 mov2_n4:; mod 01
     cmp modd, 01b 
     jne mov2_n5
@@ -865,7 +851,6 @@ out_universal:
     call print_n
     call print_command
     ret
-
 not1:
     mov opk, bl
     call getInfo
@@ -916,7 +901,6 @@ not_n7:
     call print_n
     call print_command
     ret
-
 rcr1:
     mov opk, bl
     call getInfo 
@@ -1004,7 +988,7 @@ getInfo:
     call Read
     inc count
     xor ax, ax
-    mov al, buff
+    mov al, cl
     mov adrB, al 
     call FormatByte
     call print_space 
@@ -1044,8 +1028,7 @@ prefix_print:
 prefix_out:
     pop ax
     ret
-   
-rm2b:
+rm2b: 
     push ax
     push bx
     push cx
@@ -1207,7 +1190,7 @@ pos1B:
     push ax
     push bx
     call Read 
-    mov bl, buff
+    mov bl, cl
     inc count
     mov posl1, bl
     mov al, bl
@@ -1220,7 +1203,7 @@ betop1B:
     push ax
     push bx
     call Read 
-    mov bl, buff
+    mov bl, cl
     inc count
     mov op1, bl
     mov al, bl
@@ -1233,14 +1216,14 @@ pos2B:
     push ax
     push bx
     call Read 
-    mov bl, buff
+    mov bl, cl
     inc count
     mov posl1, bl
     mov al, bl
     call FormatByte
     call print_space   
     call Read
-    mov bl, buff
+    mov bl, cl
     inc count
     mov posl2, bl
     mov al, bl
@@ -1253,14 +1236,14 @@ betop2B:
     push ax
     push bx
     call Read 
-    mov bl, buff
+    mov bl, cl
     inc count
     mov op1, bl    
     mov al, bl
     call FormatByte
     call print_space
     call Read
-    mov bl, buff
+    mov bl, cl
     inc count
     mov op2, bl
     mov al, bl
@@ -1287,7 +1270,7 @@ sregp:
 sregp_n1: ; Prefix already exists
     call prefix_print
     ret
-regp: ; gets al (within reg or rm/m)
+    regp: ; gets al (within is reg or rm/m)
     push ax
     push bx
     cmp w, 0 
