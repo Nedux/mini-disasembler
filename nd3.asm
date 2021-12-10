@@ -278,7 +278,6 @@ read_n1:
     xor cx, cx
     mov bx, i
     mov cl, readbuff + bx 
-    mov buff, cl
     inc i 
     pop bx    
     pop ax
